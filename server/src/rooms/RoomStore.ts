@@ -1,11 +1,14 @@
 import {
+  DEFAULT_SCORE_LIMIT,
+  DEFAULT_TURN_TIMER_SEC,
   MAX_PLAYERS,
   MIN_PLAYERS,
   RECONNECT_TIMEOUT_MS,
-  ROOM_CODE_DIGITS,
+  ROOM_CODE_MAX,
+  ROOM_CODE_MIN,
   ROOM_CODE_PATTERN,
-  ROOM_CODE_WORDS,
   type RoomPhase,
+  type RoomSettings,
   type RoomStatePayload,
 } from '@online-uno/shared';
 
@@ -26,6 +29,17 @@ export interface RoomInternal {
   phase: RoomPhase;
   players: Map<string, RoomPlayerInternal>;
   nextJoinOrder: number;
+  settings: RoomSettings;
+}
+
+export function defaultRoomSettings(): RoomSettings {
+  return {
+    maxPlayers: MAX_PLAYERS,
+    turnTimerSec: DEFAULT_TURN_TIMER_SEC,
+    allowReconnect: true,
+    privateRoom: false,
+    scoreLimit: DEFAULT_SCORE_LIMIT,
+  };
 }
 
 export class RoomStore {
@@ -34,10 +48,8 @@ export class RoomStore {
   private readonly socketToUid = new Map<string, string>();
 
   generateCode(): string {
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      const word = ROOM_CODE_WORDS[Math.floor(Math.random() * ROOM_CODE_WORDS.length)];
-      const digit = ROOM_CODE_DIGITS[Math.floor(Math.random() * ROOM_CODE_DIGITS.length)];
-      const code = `${word}${digit}`;
+    for (let n = ROOM_CODE_MIN; n <= ROOM_CODE_MAX; n += 1) {
+      const code = String(n);
       if (!this.rooms.has(code)) {
         return code;
       }
@@ -46,11 +58,22 @@ export class RoomStore {
   }
 
   normalizeCode(raw: string): string | null {
-    const code = raw.trim().toUpperCase();
+    const code = raw.trim();
     if (!ROOM_CODE_PATTERN.test(code)) {
       return null;
     }
     return code;
+  }
+
+  isDisplayNameTaken(room: RoomInternal, displayName: string, excludeUid?: string): boolean {
+    const normalized = displayName.trim().toLowerCase();
+    for (const player of room.players.values()) {
+      if (excludeUid && player.uid === excludeUid) continue;
+      if (player.displayName.trim().toLowerCase() === normalized) {
+        return true;
+      }
+    }
+    return false;
   }
 
   getRoom(code: string): RoomInternal | undefined {
@@ -79,6 +102,7 @@ export class RoomStore {
       phase: 'lobby',
       players: new Map(),
       nextJoinOrder: 0,
+      settings: defaultRoomSettings(),
     };
     this.rooms.set(code, room);
     this.addOrUpdatePlayer(room, {
@@ -178,7 +202,7 @@ export class RoomStore {
       hostId: room.hostId,
       phase: room.phase,
       players,
-      maxPlayers: MAX_PLAYERS,
+      settings: { ...room.settings },
       inviteLink,
     };
   }
@@ -191,9 +215,61 @@ export class RoomStore {
     if (connected.length < MIN_PLAYERS) {
       return { ok: false, reason: `Need at least ${MIN_PLAYERS} connected players.` };
     }
+    if (connected.length > room.settings.maxPlayers) {
+      return { ok: false, reason: 'Too many players for room settings.' };
+    }
     if (!connected.every((p) => p.isReady)) {
       return { ok: false, reason: 'All connected players must be ready.' };
     }
+    return { ok: true };
+  }
+
+  updateSettings(
+    room: RoomInternal,
+    partial: Partial<RoomSettings>,
+  ): { ok: true } | { ok: false; reason: string } {
+    if (room.phase !== 'lobby') {
+      return { ok: false, reason: 'Settings can only be changed in the lobby.' };
+    }
+
+    const next = { ...room.settings };
+
+    if (partial.maxPlayers !== undefined) {
+      const v = Math.floor(partial.maxPlayers);
+      if (v < MIN_PLAYERS || v > MAX_PLAYERS) {
+        return { ok: false, reason: `Max players must be ${MIN_PLAYERS}–${MAX_PLAYERS}.` };
+      }
+      if (room.players.size > v) {
+        return { ok: false, reason: 'Too many players already in the room.' };
+      }
+      next.maxPlayers = v;
+    }
+
+    if (partial.turnTimerSec !== undefined) {
+      const v = Math.floor(partial.turnTimerSec);
+      if (v < 0 || v > 120) {
+        return { ok: false, reason: 'Turn timer must be 0–120 seconds.' };
+      }
+      next.turnTimerSec = v;
+    }
+
+    if (partial.allowReconnect !== undefined) {
+      next.allowReconnect = Boolean(partial.allowReconnect);
+    }
+
+    if (partial.privateRoom !== undefined) {
+      next.privateRoom = Boolean(partial.privateRoom);
+    }
+
+    if (partial.scoreLimit !== undefined) {
+      const v = Math.floor(partial.scoreLimit);
+      if (v < 0 || v > 500) {
+        return { ok: false, reason: 'Score limit must be 0–500.' };
+      }
+      next.scoreLimit = v;
+    }
+
+    room.settings = next;
     return { ok: true };
   }
 

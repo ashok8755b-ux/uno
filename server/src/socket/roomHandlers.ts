@@ -5,11 +5,19 @@ import {
   SOCKET_EVENTS,
   type RoomErrorPayload,
   type RoomNotificationPayload,
+  type RoomSettingsPayload,
   type RoomStatePayload,
 } from '@online-uno/shared';
 
 import { roomStore } from '../rooms/RoomStore.js';
 import { socketRoomName, validatePlayerPayload } from '../rooms/validation.js';
+import {
+  broadcastGameState,
+  cleanupGame,
+  handleGameDisconnect,
+  handleGameReconnect,
+  startGameForRoom,
+} from './gameHandlers.js';
 
 const CLIENT_PUBLIC_URL = process.env.CLIENT_PUBLIC_URL ?? 'http://localhost:5173';
 
@@ -37,14 +45,22 @@ function broadcastState(io: Server, roomCode: string): void {
   io.to(socketRoomName(roomCode)).emit(SOCKET_EVENTS.ROOM_STATE, payload);
 }
 
-function removePlayerFromRoom(io: Server, roomCode: string, uid: string, reason: RoomNotificationPayload['type']): void {
+function removePlayerFromRoom(
+  io: Server,
+  roomCode: string,
+  uid: string,
+  reason: RoomNotificationPayload['type'],
+): void {
   const room = roomStore.getRoom(roomCode);
   if (!room) return;
+
+  handleGameDisconnect(roomCode, uid);
 
   const wasHost = room.hostId === uid;
   roomStore.removePlayer(room, uid);
 
   if (room.players.size === 0) {
+    cleanupGame(roomCode);
     roomStore.deleteRoom(roomCode);
     return;
   }
@@ -60,20 +76,18 @@ function removePlayerFromRoom(io: Server, roomCode: string, uid: string, reason:
     }
   }
 
-  const messageMap: Record<RoomNotificationPayload['type'], string> = {
+  const messageMap: Partial<Record<RoomNotificationPayload['type'], string>> = {
     player_left: 'A player left the room.',
     player_kicked: 'A player was removed from the room.',
     player_disconnected: 'A player was removed after disconnect timeout.',
-    player_joined: '',
-    player_reconnected: '',
-    host_transferred: '',
   };
 
   if (messageMap[reason]) {
-    emitNotification(io, roomCode, { type: reason, message: messageMap[reason], playerId: uid });
+    emitNotification(io, roomCode, { type: reason, message: messageMap[reason]!, playerId: uid });
   }
 
   broadcastState(io, roomCode);
+  broadcastGameState(io, roomCode);
 }
 
 function handlePlayerDisconnect(io: Server, socket: Socket): void {
@@ -88,6 +102,8 @@ function handlePlayerDisconnect(io: Server, socket: Socket): void {
   player.isReady = false;
   player.socketId = null;
   roomStore.unbindSocket(socket.id);
+
+  handleGameDisconnect(room.code, uid);
 
   if (room.hostId === uid) {
     roomStore.transferHost(room);
@@ -105,6 +121,12 @@ function handlePlayerDisconnect(io: Server, socket: Socket): void {
   });
 
   broadcastState(io, room.code);
+  broadcastGameState(io, room.code);
+
+  if (!room.settings.allowReconnect) {
+    removePlayerFromRoom(io, room.code, uid, 'player_disconnected');
+    return;
+  }
 
   roomStore.scheduleRemoval(room, uid, () => {
     if (!roomStore.getRoom(room.code)) return;
@@ -116,6 +138,48 @@ function handlePlayerDisconnect(io: Server, socket: Socket): void {
 
 function joinSocketToRoom(socket: Socket, roomCode: string): void {
   void socket.join(socketRoomName(roomCode));
+}
+
+function tryRejoinExisting(
+  io: Server,
+  socket: Socket,
+  room: NonNullable<ReturnType<typeof roomStore.getRoom>>,
+  player: NonNullable<ReturnType<typeof validatePlayerPayload>>,
+  code: string,
+  ack?: (res: { ok: boolean; error?: string }) => void,
+): boolean {
+  const existing = room.players.get(player.uid);
+  if (!existing) return false;
+
+  if (existing.connected && existing.socketId !== socket.id) {
+    emitError(socket, 'DUPLICATE_JOIN', 'You are already in this room.');
+    ack?.({ ok: false, error: 'Already joined.' });
+    return true;
+  }
+
+  if (roomStore.isDisplayNameTaken(room, player.displayName, player.uid)) {
+    emitError(socket, 'DUPLICATE_NAME', 'That display name is already taken in this room.');
+    ack?.({ ok: false, error: 'Name taken.' });
+    return true;
+  }
+
+  roomStore.bindSocket(room, player.uid, socket.id);
+  existing.displayName = player.displayName;
+  existing.photoURL = player.photoURL;
+  joinSocketToRoom(socket, code);
+
+  if (room.phase === 'playing') {
+    handleGameReconnect(io, code, player.uid);
+  }
+
+  emitNotification(io, code, {
+    type: 'player_reconnected',
+    message: `${player.displayName} reconnected.`,
+    playerId: player.uid,
+  });
+  broadcastState(io, code);
+  ack?.({ ok: true });
+  return true;
 }
 
 export function registerRoomHandlers(io: Server): void {
@@ -175,36 +239,37 @@ export function registerRoomHandlers(io: Server): void {
         return;
       }
 
+      if (room.settings.privateRoom && !room.players.has(player.uid)) {
+        emitError(socket, 'ROOM_PRIVATE', 'This room is private.');
+        ack?.({ ok: false, error: 'Room is private.' });
+        return;
+      }
+
+      if (room.phase === 'finished') {
+        emitError(socket, 'GAME_ENDED', 'This game has ended.');
+        ack?.({ ok: false, error: 'Game ended.' });
+        return;
+      }
+
+      if (tryRejoinExisting(io, socket, room, player, code, ack)) {
+        return;
+      }
+
       if (room.phase !== 'lobby') {
         emitError(socket, 'GAME_STARTED', 'This game has already started.');
         ack?.({ ok: false, error: 'Game already started.' });
         return;
       }
 
-      const existing = room.players.get(player.uid);
-      if (existing) {
-        if (existing.connected && existing.socketId !== socket.id) {
-          emitError(socket, 'DUPLICATE_JOIN', 'You are already in this room.');
-          ack?.({ ok: false, error: 'Already joined.' });
-          return;
-        }
-        roomStore.bindSocket(room, player.uid, socket.id);
-        existing.displayName = player.displayName;
-        existing.photoURL = player.photoURL;
-        joinSocketToRoom(socket, code);
-        emitNotification(io, code, {
-          type: 'player_reconnected',
-          message: `${player.displayName} reconnected.`,
-          playerId: player.uid,
-        });
-        broadcastState(io, code);
-        ack?.({ ok: true });
+      if (room.players.size >= room.settings.maxPlayers) {
+        emitError(socket, 'ROOM_FULL', 'Room is full.');
+        ack?.({ ok: false, error: 'Room is full.' });
         return;
       }
 
-      if (room.players.size >= MAX_PLAYERS) {
-        emitError(socket, 'ROOM_FULL', 'Room is full.');
-        ack?.({ ok: false, error: 'Room is full.' });
+      if (roomStore.isDisplayNameTaken(room, player.displayName)) {
+        emitError(socket, 'DUPLICATE_NAME', 'That display name is already taken in this room.');
+        ack?.({ ok: false, error: 'Name taken.' });
         return;
       }
 
@@ -252,9 +317,9 @@ export function registerRoomHandlers(io: Server): void {
         return;
       }
 
-      if (room.phase !== 'lobby') {
-        emitError(socket, 'GAME_STARTED', 'Game in progress.');
-        ack?.({ ok: false, error: 'Game started.' });
+      if (room.phase === 'finished') {
+        emitError(socket, 'GAME_ENDED', 'This game has ended.');
+        ack?.({ ok: false, error: 'Game ended.' });
         return;
       }
 
@@ -262,6 +327,12 @@ export function registerRoomHandlers(io: Server): void {
       if (!existing) {
         emitError(socket, 'NOT_IN_ROOM', 'You were not in this room.');
         ack?.({ ok: false, error: 'Not a member.' });
+        return;
+      }
+
+      if (!room.settings.allowReconnect && room.phase === 'playing') {
+        emitError(socket, 'RECONNECT_DISABLED', 'Reconnect is disabled for this room.');
+        ack?.({ ok: false, error: 'Reconnect disabled.' });
         return;
       }
 
@@ -274,10 +345,21 @@ export function registerRoomHandlers(io: Server): void {
         }
       }
 
+      if (roomStore.isDisplayNameTaken(room, player.displayName, player.uid)) {
+        emitError(socket, 'DUPLICATE_NAME', 'That display name is already taken in this room.');
+        ack?.({ ok: false, error: 'Name taken.' });
+        return;
+      }
+
       roomStore.bindSocket(room, player.uid, socket.id);
       existing.displayName = player.displayName;
       existing.photoURL = player.photoURL;
       joinSocketToRoom(socket, code);
+
+      if (room.phase === 'playing') {
+        handleGameReconnect(io, code, player.uid);
+      }
+
       emitNotification(io, code, {
         type: 'player_reconnected',
         message: `${player.displayName} reconnected.`,
@@ -328,6 +410,40 @@ export function registerRoomHandlers(io: Server): void {
       ack?.({ ok: true });
     });
 
+    socket.on(
+      SOCKET_EVENTS.ROOM_SETTINGS,
+      (rawPayload, ack?: (res: { ok: boolean; error?: string }) => void) => {
+        const room = roomStore.getRoomBySocket(socket.id);
+        const uid = roomStore.getUidForSocket(socket.id);
+        if (!room || !uid) {
+          emitError(socket, 'NOT_IN_ROOM', 'You are not in a room.');
+          ack?.({ ok: false, error: 'Not in room.' });
+          return;
+        }
+
+        if (room.hostId !== uid) {
+          emitError(socket, 'NOT_HOST', 'Only the host can change settings.');
+          ack?.({ ok: false, error: 'Not host.' });
+          return;
+        }
+
+        const partial = rawPayload as RoomSettingsPayload;
+        const result = roomStore.updateSettings(room, partial);
+        if (!result.ok) {
+          emitError(socket, 'INVALID_SETTINGS', result.reason);
+          ack?.({ ok: false, error: result.reason });
+          return;
+        }
+
+        broadcastState(io, room.code);
+        emitNotification(io, room.code, {
+          type: 'settings_updated',
+          message: 'Room settings updated.',
+        });
+        ack?.({ ok: true });
+      },
+    );
+
     socket.on(SOCKET_EVENTS.ROOM_START, (ack?: (res: { ok: boolean; error?: string }) => void) => {
       const room = roomStore.getRoomBySocket(socket.id);
       const uid = roomStore.getUidForSocket(socket.id);
@@ -352,6 +468,7 @@ export function registerRoomHandlers(io: Server): void {
 
       room.phase = 'playing';
       broadcastState(io, room.code);
+      startGameForRoom(io, room.code);
       io.to(socketRoomName(room.code)).emit(SOCKET_EVENTS.ROOM_STARTED, { code: room.code });
       ack?.({ ok: true });
     });

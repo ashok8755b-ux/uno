@@ -1,5 +1,4 @@
-/**
- * Authoritative UNO game engine — implemented in Milestone 4.
- * Server-only; UI must not duplicate rules logic.
- */
-export const ENGINE_PLACEHOLDER = true;
+export { GameEngine, createDeck, shuffleDeck } from './GameEngine.js';
+export type { GamePlayerInternal, GameConfig } from './GameEngine.js';
+export { gameManager } from './GameManager.js';
+export * from './rules.js';
