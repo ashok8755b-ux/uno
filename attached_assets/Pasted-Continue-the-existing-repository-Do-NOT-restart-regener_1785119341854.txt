@@ -1,0 +1,154 @@
+Continue the existing repository. Do NOT restart, regenerate or replace the project.
+
+This is NOT a milestone. The objective is to finish the entire project as much as possible in this run.
+
+Prioritize completing the game over adding extra features.
+
+Requirements:
+
+• Complete official UNO multiplayer using the existing architecture.
+• React + Vite frontend.
+• Express + Socket.IO backend.
+• Firebase Authentication.
+• Firestore for player statistics.
+• Shared types package.
+• Server authoritative game logic.
+• Responsive desktop and mobile.
+• PWA ready.
+• Production ready for Vercel (client) and Render or another Node host (server).
+
+Complete everything still unfinished:
+
+AUTH
+- Google login
+- Guest login
+- Firebase integration
+- Proper auth state
+- Firestore user profile
+- Fix OAuth issues
+- Remove placeholder auth screens
+
+ROOM SYSTEM
+- Create room
+- Join room
+- Invite link
+- Copy room code
+- Leave room
+- Waiting lobby
+- Ready / Unready
+- Host migration
+- Reconnect
+- Kick player
+- Host settings
+- Start game
+- Room cleanup
+- Full synchronization
+
+HOST SETTINGS
+- Players (2-10)
+- Turn timer
+- Private room
+- Score limit
+- Reconnect option
+- Sync settings live before game
+
+UNO GAME
+Implement COMPLETE official UNO rules.
+
+Including:
+- Deck
+- Shuffle
+- Deal
+- Draw pile
+- Discard pile
+- Turn order
+- Reverse
+- Skip
+- Draw Two
+- Wild
+- Wild Draw Four
+- Color picker
+- Draw logic
+- Illegal move validation
+- UNO button
+- UNO penalty
+- Turn timer
+- Winner detection
+- Score calculation
+- Next round
+- Match end
+- Server-side validation
+- Anti-cheat
+- Socket synchronization
+
+GAME UI
+Connect the real backend.
+
+Show:
+- Player hand
+- Opponent card count
+- Current player
+- Current color
+- Draw pile
+- Discard pile
+- Timer
+- UNO button
+- Wild color picker
+- Result screen
+- Scoreboard
+
+UI
+Keep the design clean, modern and fast.
+
+Avoid unnecessary buttons.
+
+Keep navigation simple.
+
+Prefer landscape gameplay on mobile while remaining usable in portrait.
+
+Cards should never overlap or misalign.
+
+Use UNO-inspired cards.
+Display:
++2
++4
+WILD
+Never use "W4".
+
+PERFORMANCE
+Optimize rendering.
+Reduce unnecessary rerenders.
+Reduce socket traffic.
+Remove dead code.
+Fix TypeScript errors.
+Fix build errors.
+
+DEPLOYMENT
+Leave the project ready for deployment.
+
+Client should build successfully for Vercel.
+
+Server should build successfully for a Node host such as Render.
+
+Create or update:
+- README
+- deployment instructions
+- required environment variables
+
+If Firebase rules or Firestore indexes are required, generate the files in the repository.
+
+Do not spend time on unnecessary cosmetic animations or features if they prevent finishing gameplay.
+
+Reuse existing code wherever possible instead of rewriting it.
+
+Test builds before finishing.
+
+Auto commit every completed major feature with meaningful commit messages.
+
+Continue working until the project is as complete as possible or agent resources are exhausted.
+
+Before stopping, summarize:
+- completed features
+- modified files
+- remaining issues (if any)
+- exact deployment steps for Vercel and the backend

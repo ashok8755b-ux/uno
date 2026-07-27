@@ -1,66 +1,89 @@
 # Online UNO
 
-Production-quality online multiplayer UNO built with React, Node.js, Socket.IO, and Firebase.
+Production-quality online multiplayer UNO — React + Vite PWA frontend, Express + Socket.IO backend, Firebase Authentication, Firestore player profiles.
 
-## Structure
+## Features
 
-| Package   | Role                                      |
-| --------- | ----------------------------------------- |
-| `client/` | React + Vite + Tailwind PWA frontend      |
+- **Full official UNO rules** — Draw Two, Skip, Reverse, Wild, Wild Draw Four, colour picker, UNO penalty, stacking, turn timer
+- **Server-authoritative** — all game logic runs on the server; anti-cheat built in
+- **Real-time multiplayer** — Socket.IO with reconnect support and automatic host migration
+- **Room system** — create/join with a 4-digit code, invite link, configurable settings
+- **Authentication** — Google login + guest (anonymous) via Firebase Auth
+- **Player profiles** — Firestore `users/{uid}` with game stats
+- **PWA** — installable, service worker, offline splash
+- **Responsive** — mobile-first, landscape gameplay optimised
+
+## Stack
+
+| Package | Role |
+|---------|------|
+| `client/` | React 19 + Vite + Tailwind + Framer Motion PWA |
 | `server/` | Express + Socket.IO authoritative backend |
-| `shared/` | Shared types, constants, and game types   |
+| `shared/` | TypeScript types and game constants |
 
-## Prerequisites
-
-- Node.js 20+
-- npm 10+
-- Firebase project (Milestone 2+)
-
-## Setup
+## Quick start
 
 ```bash
 npm install
-cp client/.env.example client/.env
+cp client/.env.example client/.env   # fill in Firebase keys
 cp server/.env.example server/.env
-```
-
-Fill in Firebase keys in `client/.env` — see [docs/firebase-setup.md](docs/firebase-setup.md).
-
-## Development
-
-```bash
-# Client (5173) + server (3001)
 npm run dev
-
-# Client only
-npm run dev:client
-
-# Server only
-npm run dev:server
 ```
+
+- Client: `http://localhost:5000`
+- Server: `http://localhost:3001`
 
 ## Scripts
 
-| Command           | Description                |
-| ----------------- | -------------------------- |
-| `npm run build`   | Build shared, client, server |
-| `npm run lint`    | ESLint client + server     |
-| `npm run format`  | Prettier write             |
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Shared watch + Vite dev + server dev |
+| `npm run build` | Production build (shared → client → server) |
+| `npm run lint` | ESLint client + server |
+| `npm run format` | Prettier write |
 
-See [PROJECT.md](PROJECT.md) for architecture and milestone status.
+## Deployment
 
-## Milestones
+See **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** for full Vercel + Render instructions and environment variable reference.
 
-1. Project setup ✓
-2. Authentication ✓
-3. Room system
-4. UNO engine
-5. Socket integration
-6. Frontend game UI
-7. Animations
-8. Sounds
-9. Firestore statistics
-10. Deployment (Vercel + Render)
+**Short version:**
+- Client → Vercel (root: `client/`, build: `npm run build`, output: `dist`)
+- Server → Render (Node 20, build + start commands in deployment guide)
+- Firebase credentials needed for both; Vercel domain must be added to Firebase Authorized Domains
+
+## Environment variables
+
+### Client (`client/.env`)
+
+```
+VITE_API_URL=http://localhost:3001
+VITE_SOCKET_URL=http://localhost:3001
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+```
+
+### Server (`server/.env`)
+
+```
+PORT=3001
+CLIENT_ORIGIN=http://localhost:5000
+CLIENT_PUBLIC_URL=http://localhost:5000
+NODE_ENV=development
+```
+
+## Milestones completed
+
+| # | Feature |
+|---|---------|
+| M1 | Monorepo, Vite/React/Tailwind, Express + Socket.IO, shared types, PWA |
+| M2 | Firebase Auth — Google login, guest login, Firestore user profiles |
+| M3 | Room system — create/join, invite link, lobby, ready state, host migration, reconnect, kick, settings |
+| M4 | Authoritative UNO engine — full official rules, scoring, round/match management |
+| M5 | Socket integration — server-validated game state, real-time sync, game UI |
 
 ## License
 

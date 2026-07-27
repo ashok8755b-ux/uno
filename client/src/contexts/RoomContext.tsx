@@ -11,6 +11,7 @@ import {
   SOCKET_EVENTS,
   type RoomErrorPayload,
   type RoomNotificationPayload,
+  type RoomSettingsPayload,
   type RoomStatePayload,
 } from '@online-uno/shared';
 
@@ -30,6 +31,7 @@ interface RoomContextValue {
   rejoinRoom: (code: string) => Promise<void>;
   leaveRoom: () => Promise<void>;
   setReady: (ready: boolean) => Promise<void>;
+  updateSettings: (settings: RoomSettingsPayload) => Promise<void>;
   startGame: () => Promise<void>;
   kickPlayer: (targetUid: string) => Promise<void>;
   clearError: () => void;
@@ -106,16 +108,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       setLastNotification(payload);
     };
 
-    const onStarted = () => {
-      /* navigation handled in waiting room */
-    };
-
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on(SOCKET_EVENTS.ROOM_STATE, onState);
     socket.on(SOCKET_EVENTS.ROOM_ERROR, onError);
     socket.on(SOCKET_EVENTS.ROOM_NOTIFICATION, onNotification);
-    socket.on(SOCKET_EVENTS.ROOM_STARTED, onStarted);
 
     if (socket.connected) {
       onConnect();
@@ -127,14 +124,11 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       socket.off(SOCKET_EVENTS.ROOM_STATE, onState);
       socket.off(SOCKET_EVENTS.ROOM_ERROR, onError);
       socket.off(SOCKET_EVENTS.ROOM_NOTIFICATION, onNotification);
-      socket.off(SOCKET_EVENTS.ROOM_STARTED, onStarted);
     };
   }, [profile]);
 
   const requireProfile = useCallback(() => {
-    if (!profile) {
-      throw new Error('Not signed in');
-    }
+    if (!profile) throw new Error('Not signed in');
     return profile;
   }, [profile]);
 
@@ -142,9 +136,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     const p = requireProfile();
     connectGameSocket();
     const ack = await emitAck<Ack>(SOCKET_EVENTS.ROOM_CREATE, playerPayload(p));
-    if (!ack.ok) {
-      throw new Error(ack.error ?? 'Create failed');
-    }
+    if (!ack.ok) throw new Error(ack.error ?? 'Create failed');
     return new Promise<RoomStatePayload>((resolve, reject) => {
       const socket = getGameSocket();
       const timeout = window.setTimeout(() => reject(new Error('Room state timeout')), 5000);
@@ -161,18 +153,16 @@ export function RoomProvider({ children }: { children: ReactNode }) {
     async (code: string) => {
       const p = requireProfile();
       connectGameSocket();
+      const normalized = code.trim().toUpperCase();
       const ack = await emitAck<Ack>(SOCKET_EVENTS.ROOM_JOIN, {
         ...playerPayload(p),
-        code: code.trim().toUpperCase(),
+        code: normalized,
       });
-      if (!ack.ok) {
-        throw new Error(ack.error ?? 'Join failed');
-      }
+      if (!ack.ok) throw new Error(ack.error ?? 'Join failed');
       return new Promise<RoomStatePayload>((resolve, reject) => {
         const socket = getGameSocket();
         const timeout = window.setTimeout(() => reject(new Error('Room state timeout')), 5000);
         const handler = (state: RoomStatePayload) => {
-          if (state.code !== code.trim().toUpperCase()) return;
           window.clearTimeout(timeout);
           socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
           resolve(state);
@@ -190,9 +180,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
         ...playerPayload(p),
         code: code.trim().toUpperCase(),
       });
-      if (!ack.ok) {
-        throw new Error(ack.error ?? 'Rejoin failed');
-      }
+      if (!ack.ok) throw new Error(ack.error ?? 'Rejoin failed');
     },
     [requireProfile],
   );
@@ -205,23 +193,22 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
   const setReady = useCallback(async (ready: boolean) => {
     const ack = await emitAck<Ack>(SOCKET_EVENTS.ROOM_READY, { ready });
-    if (!ack.ok) {
-      throw new Error(ack.error ?? 'Ready failed');
-    }
+    if (!ack.ok) throw new Error(ack.error ?? 'Ready failed');
+  }, []);
+
+  const updateSettings = useCallback(async (settings: RoomSettingsPayload) => {
+    const ack = await emitAck<Ack>(SOCKET_EVENTS.ROOM_SETTINGS, settings);
+    if (!ack.ok) throw new Error(ack.error ?? 'Settings update failed');
   }, []);
 
   const startGame = useCallback(async () => {
     const ack = await emitAck<Ack>(SOCKET_EVENTS.ROOM_START);
-    if (!ack.ok) {
-      throw new Error(ack.error ?? 'Start failed');
-    }
+    if (!ack.ok) throw new Error(ack.error ?? 'Start failed');
   }, []);
 
   const kickPlayer = useCallback(async (targetUid: string) => {
     const ack = await emitAck<Ack>(SOCKET_EVENTS.ROOM_KICK, { targetUid });
-    if (!ack.ok) {
-      throw new Error(ack.error ?? 'Kick failed');
-    }
+    if (!ack.ok) throw new Error(ack.error ?? 'Kick failed');
   }, []);
 
   const clearError = useCallback(() => setLastError(null), []);
@@ -237,6 +224,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       rejoinRoom,
       leaveRoom,
       setReady,
+      updateSettings,
       startGame,
       kickPlayer,
       clearError,
@@ -251,6 +239,7 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       rejoinRoom,
       leaveRoom,
       setReady,
+      updateSettings,
       startGame,
       kickPlayer,
       clearError,
@@ -262,8 +251,6 @@ export function RoomProvider({ children }: { children: ReactNode }) {
 
 export function useRoom(): RoomContextValue {
   const ctx = useContext(RoomContext);
-  if (!ctx) {
-    throw new Error('useRoom must be used within RoomProvider');
-  }
+  if (!ctx) throw new Error('useRoom must be used within RoomProvider');
   return ctx;
 }

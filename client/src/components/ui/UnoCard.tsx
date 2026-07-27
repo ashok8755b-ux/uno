@@ -4,8 +4,8 @@ import { cn } from '@/utils/cn';
 export type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
 export type CardValue =
   | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
-  | 'skip' | 'reverse' | 'draw_two'
-  | 'wild' | 'wild_draw_four'
+  | 'skip' | 'reverse' | 'draw-two'
+  | 'wild' | 'wild-draw-four'
   | 'back';
 
 export interface UnoCardData {
@@ -30,9 +30,25 @@ const SIZES = {
   xl:  { w: 120, h: 180, font: 46, corner: 23, oval: { w: 74, h: 112 }, border: 3 },
 };
 
+function cornerLabel(value: CardValue): string {
+  switch (value) {
+    case 'skip': return '⊘';
+    case 'reverse': return '↺';
+    case 'draw-two': return '+2';
+    case 'wild': return 'W';
+    case 'wild-draw-four': return '+4';
+    default: return value;
+  }
+}
+
 function SymbolText({ value, size }: { value: CardValue; size: number }) {
   const symbols: Partial<Record<CardValue, string>> = {
-    skip: '⊘', reverse: '↺', draw_two: '+2', wild: '🌈', wild_draw_four: '+4', back: '🂠',
+    skip: '⊘',
+    reverse: '↺',
+    'draw-two': '+2',
+    wild: '🌈',
+    'wild-draw-four': '+4',
+    back: '🂠',
   };
   const text = symbols[value] ?? value;
   return (
@@ -106,11 +122,13 @@ export function UnoCard({
     ? 'rgba(255,255,255,0.5)'
     : 'rgba(255,255,255,0.18)';
 
+  const clickable = interactive || isPlayable;
+
   return (
     <motion.div
-      onClick={interactive || isPlayable ? onClick : undefined}
-      whileHover={interactive || isPlayable ? { scale: 1.08, y: -6 } : undefined}
-      whileTap={interactive || isPlayable ? { scale: 0.95 } : undefined}
+      onClick={clickable ? onClick : undefined}
+      whileHover={clickable ? { scale: 1.08, y: -6 } : undefined}
+      whileTap={clickable ? { scale: 0.95 } : undefined}
       className={cn(className)}
       style={{
         width: s.w,
@@ -121,7 +139,7 @@ export function UnoCard({
         boxShadow: isSelected
           ? `0 0 0 3px #ffd60a, 0 8px 32px ${shadowColor}, 0 2px 4px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)`
           : `0 8px 32px ${shadowColor}, 0 2px 4px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)`,
-        cursor: (interactive || isPlayable) ? 'pointer' : 'default',
+        cursor: clickable ? 'pointer' : 'default',
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
@@ -174,8 +192,8 @@ export function UnoCard({
                 </div>
               </div>
             )}
-            {/* Wild +4 label outside oval */}
-            {isWild && value === 'wild_draw_four' && (
+            {/* Wild +4 label */}
+            {isWild && value === 'wild-draw-four' && (
               <span style={{
                 position: 'absolute', bottom: -s.font * 0.6,
                 fontSize: s.font * 0.7, fontWeight: 900, color: 'white',
@@ -192,7 +210,7 @@ export function UnoCard({
               lineHeight: 1, color: 'white',
             }}>
               <span style={{ fontSize: s.corner, fontWeight: 900, letterSpacing: '-0.04em' }}>
-                {value === 'skip' ? '⊘' : value === 'reverse' ? '↺' : value === 'draw_two' ? '+2' : value === 'wild' ? 'W' : value === 'wild_draw_four' ? 'W4' : value}
+                {cornerLabel(value)}
               </span>
             </div>
           )}
@@ -206,7 +224,7 @@ export function UnoCard({
               lineHeight: 1, color: 'white',
             }}>
               <span style={{ fontSize: s.corner, fontWeight: 900, letterSpacing: '-0.04em' }}>
-                {value === 'skip' ? '⊘' : value === 'reverse' ? '↺' : value === 'draw_two' ? '+2' : value === 'wild' ? 'W' : value === 'wild_draw_four' ? 'W4' : value}
+                {cornerLabel(value)}
               </span>
             </div>
           )}

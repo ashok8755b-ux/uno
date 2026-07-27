@@ -1,4 +1,4 @@
-import type { GameEngine, GamePlayerInternal } from './GameEngine.js';
+import { GameEngine, type GamePlayerInternal } from './GameEngine.js';
 
 class GameManager {
   private readonly games = new Map<string, GameEngine>();

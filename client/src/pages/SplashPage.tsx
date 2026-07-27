@@ -10,7 +10,7 @@ const FLOATING_CARDS = [
   { color: 'red'    as const, value: '7' as const, x: '10%',  y: '15%',  rot: -20, delay: 0    },
   { color: 'blue'   as const, value: 'skip' as const, x: '80%', y: '10%', rot: 15,  delay: 0.4  },
   { color: 'green'  as const, value: 'reverse' as const, x: '5%', y: '70%', rot: -10, delay: 0.8 },
-  { color: 'yellow' as const, value: 'draw_two' as const, x: '82%', y: '72%', rot: 22, delay: 0.6 },
+  { color: 'yellow' as const, value: 'draw-two' as const, x: '82%', y: '72%', rot: 22, delay: 0.6 },
   { color: 'wild'   as const, value: 'wild' as const, x: '50%', y: '5%', rot: 5, delay: 1.0 },
 ];
 

@@ -13,7 +13,7 @@ const FLOAT_CARDS = [
   { color: 'blue'   as const, value: 'skip' as const,     x: '78%', y: '12%', rot: 14,  delay: 0.5, dur: 6   },
   { color: 'yellow' as const, value: '3' as const,        x: '85%', y: '65%', rot: 22,  delay: 1.0, dur: 4.5 },
   { color: 'green'  as const, value: 'reverse' as const,  x: '5%',  y: '72%', rot: -8,  delay: 0.3, dur: 5.5 },
-  { color: 'wild'   as const, value: 'wild_draw_four' as const, x: '55%', y: '5%', rot: 6, delay: 0.7, dur: 7 },
+  { color: 'wild'   as const, value: 'wild-draw-four' as const, x: '55%', y: '5%', rot: 6, delay: 0.7, dur: 7 },
 ];
 
 function GoogleIcon() {

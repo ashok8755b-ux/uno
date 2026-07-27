@@ -1,104 +1,33 @@
-# Online UNO
+# Online UNO — Replit Project
 
-Production-quality online multiplayer UNO — React PWA frontend + Node.js/Socket.IO backend.
+Production-quality online multiplayer UNO game.
 
-## Stack
+## Architecture
 
-| Layer     | Technology                                   |
-|-----------|----------------------------------------------|
-| Frontend  | React 19, Vite, Tailwind CSS v4, Framer Motion, PWA |
-| Backend   | Node.js 20, Express, Socket.IO               |
-| Auth      | Firebase Authentication (Google + Anonymous) |
-| Database  | Firestore (player statistics)                |
-| Shared    | TypeScript types & constants (npm workspace) |
+- **Client** (`client/`): React 19 + Vite + Tailwind + Framer Motion PWA, port 5000
+- **Server** (`server/`): Express + Socket.IO authoritative game server, port 3001
+- **Shared** (`shared/`): TypeScript types and constants, compiled to `shared/dist/`
+- **Vite proxy**: `/socket.io` requests from port 5000 are proxied to port 3001 automatically
 
-## Repo layout
+## Running locally on Replit
 
-```
-online-uno/
-├── client/   – React PWA (Vite, port 5000 in dev)
-├── server/   – Express + Socket.IO (port 3001)
-├── shared/   – Shared TS types & game constants
-└── docs/     – Firebase setup, Firestore rules, milestone notes
-```
+The "Start application" workflow runs `npm run dev` which:
+1. Compiles the shared package
+2. Starts shared TypeScript watch
+3. Starts Vite dev server (port 5000)
+4. Starts Express + Socket.IO server (port 3001)
 
-## First-time setup on Replit
+## Environment
 
-```bash
-npm install            # hydrates node_modules from package-lock.json
-cp client/.env.example client/.env
-cp server/.env.example server/.env
-# then fill in Firebase credentials — see below
-```
-
-Hit **Run** (or `npm run dev`). Both services start together:
-
-- **Client** → port 5000 (Vite; proxies `/health` and `/socket.io` to the server)
-- **Server** → port 3001 (Express + Socket.IO)
-
-The Vite proxy means the browser only needs one origin in dev — leave `VITE_API_URL` and `VITE_SOCKET_URL` empty.
-
-## Environment variables
-
-### Firebase credentials (required for auth to work)
-
-Add these as **Replit Secrets** (padlock icon → Secrets) rather than committing them:
-
-| Secret name                           | Where to find it               |
-|---------------------------------------|--------------------------------|
-| `VITE_FIREBASE_API_KEY`               | Firebase Console → Project settings → General → Your apps |
-| `VITE_FIREBASE_AUTH_DOMAIN`           | same                           |
-| `VITE_FIREBASE_PROJECT_ID`            | same                           |
-| `VITE_FIREBASE_STORAGE_BUCKET`        | same                           |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID`   | same                           |
-| `VITE_FIREBASE_APP_ID`                | same                           |
-
-See `docs/firebase-setup.md` for full Firebase project setup instructions.
-
-Also copy the values into `client/.env` locally so Vite can pick them up in dev.
-
-### Server env (`server/.env`)
-
-| Variable           | Default                    |
-|--------------------|----------------------------|
-| `PORT`             | 3001                       |
-| `CLIENT_ORIGIN`    | http://localhost:5000      |
-| `NODE_ENV`         | development                |
-
-These are already set in `.replit [userenv]` and require no extra action on Replit.
-
-## Milestones
-
-| # | Feature                     | Status     |
-|---|-----------------------------|------------|
-| 1 | Project scaffolding         | ✅ Done    |
-| 2 | Firebase Auth & profiles    | ✅ Done    |
-| 3 | Room system                 | 🔜 Next    |
-| 4 | UNO game engine             | Pending    |
-| 5 | Socket integration + auth   | Pending    |
-| 6 | Game UI                     | Pending    |
-| 7 | Animations                  | Pending    |
-| 8 | Sounds & settings           | Pending    |
-| 9 | Firestore statistics        | Pending    |
-| 10| Deployment (Vercel + Render)| Pending    |
-
-## Development rules
-
-- Never duplicate code — use shared types, reusable components
-- Never hardcode secrets — all config via env vars
-- Keep game logic server-side; UI logic separate from engine
-- Server always validates game actions
-- TypeScript throughout; no `any`
-
-## Deployment targets
-
-- **Frontend** → Vercel (`client/` package)
-- **Backend** → Render (`server/` package)
-- Firebase hosts Auth + Firestore
+Firebase credentials are already set in `.replit` env vars. Socket URL is empty string (same-origin via Vite proxy).
 
 ## User preferences
 
-- Premium modern UI, dark theme, mobile-first
-- Use CSS transforms and Framer Motion — no WebGL/3D
-- Official UNO rules only, 2–10 players
-- Explain every change: what, why, and which files were modified
+- Preserve existing project structure and stack — do not restructure
+- Fix TypeScript errors before declaring done
+- Server TypeScript build command: `node_modules/.bin/tsc -p server/tsconfig.json`
+- Client TypeScript build command: `node_modules/.bin/tsc -p client/tsconfig.app.json --noEmit`
+- Shared TypeScript build command: `node_modules/.bin/tsc -p shared/tsconfig.json`
+- UnoCard values use hyphens to match shared types: `draw-two`, `wild-draw-four` (never underscores)
+- Never display "W4" on cards — use "+4" instead
+- Keep game pages in `client/src/pages/`, contexts in `client/src/contexts/`

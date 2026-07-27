@@ -10,8 +10,8 @@ const PREVIEW_CARDS = [
   { color: 'red'    as const, value: '7' as const,           rot: -12 },
   { color: 'blue'   as const, value: 'skip' as const,        rot: -4  },
   { color: 'green'  as const, value: 'reverse' as const,     rot: 4   },
-  { color: 'yellow' as const, value: 'draw_two' as const,    rot: 12  },
-  { color: 'wild'   as const, value: 'wild_draw_four' as const, rot: 20 },
+  { color: 'yellow' as const, value: 'draw-two' as const,    rot: 12  },
+  { color: 'wild'   as const, value: 'wild-draw-four' as const, rot: 20 },
 ];
 
 export default function HomePage() {
